@@ -1,0 +1,126 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Library API", "version": "0.9.0" },
+  "servers": [{ "url": "https://library.example.org/api" }],
+  "security": [{ "basicAuth": [] }, { "bearerAuth": [] }],
+  "paths": {
+    "/categories": {
+      "get": {
+        "operationId": "listCategories",
+        "responses": {
+          "200": {
+            "description": "The category tree",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Category" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/books": {
+      "post": {
+        "operationId": "createBook",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Book" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Book" } } },
+            "links": {
+              "GetBook": { "operationId": "getBook", "parameters": { "isbn": "$response.body#/isbn" } }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": { "schema": { "$ref": "common.yaml#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/books/{isbn}": {
+      "get": {
+        "operationId": "getBook",
+        "parameters": [
+          { "name": "isbn", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^97[89]-\\d{10}$" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "The book",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Book" } } }
+          },
+          "404": {
+            "description": "Unknown ISBN",
+            "content": {
+              "application/json": { "schema": { "$ref": "common.yaml#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/members": {
+      "post": {
+        "operationId": "registerMember",
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8, "writeOnly": true },
+                  "plan": { "const": "free" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "204": { "description": "Registered" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": { "type": "http", "scheme": "basic" },
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "Category": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "children": { "type": "array", "items": { "$ref": "#/components/schemas/Category" } }
+        }
+      },
+      "Author": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "books": { "type": "array", "items": { "$ref": "#/components/schemas/Book" } }
+        }
+      },
+      "Book": {
+        "type": "object",
+        "required": ["isbn", "title"],
+        "properties": {
+          "isbn": { "type": "string", "pattern": "^97[89]-\\d{10}$" },
+          "title": { "type": "string", "minLength": 1 },
+          "published": { "type": ["integer", "null"], "minimum": 1450 },
+          "format": { "anyOf": [{ "const": "paperback" }, { "const": "hardcover" }, { "type": "null" }] },
+          "author": { "$ref": "#/components/schemas/Author" },
+          "category": { "$ref": "#/components/schemas/Category" },
+          "paging": { "$ref": "common.yaml#/components/schemas/Paging" }
+        }
+      }
+    }
+  }
+}

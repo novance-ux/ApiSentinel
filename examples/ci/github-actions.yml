@@ -1,0 +1,53 @@
+# Example: run apitest against your own API in GitHub Actions.
+# Copy to .github/workflows/api-contract.yml in your service's repository and adjust
+# the "Start the API" step. Findings fail the job and show up as JUnit test results.
+name: api-contract
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  apitest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Start the API under test
+        run: |
+          # Replace with however your service starts, e.g. docker compose up -d
+          pip install -r requirements.txt
+          uvicorn app.main:app --port 8000 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8000/health && break; sleep 1; done
+
+      - name: Install apitest
+        run: pip install apitest
+
+      - name: Run contract tests
+        env:
+          API_KEY: ${{ secrets.TEST_API_KEY }}   # referenced from apitest.yaml as ${API_KEY}
+        run: |
+          apitest run openapi.yaml \
+            --base-url http://localhost:8000 \
+            --config apitest.yaml \
+            --seed ${{ github.run_number }} \
+            -s positive -s security -s negative -s boundary -s stateful \
+            -f junit -f html -f json -o reports
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apitest-reports
+          path: reports/
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: reports/apitest-report.xml

@@ -1,0 +1,14 @@
+# Shared components referenced from library.json via a relative external $ref.
+components:
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+    Paging:
+      type: object
+      properties:
+        cursor: { type: ["string", "null"] }
+        limit: { type: integer, minimum: 1, maximum: 50 }

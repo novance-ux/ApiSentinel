@@ -1,0 +1,410 @@
+openapi: 3.0.3
+info:
+  title: Buggy Inventory API
+  version: 1.0.0
+  description: >
+    Reference contract for the deliberately buggy example API. The implementation in
+    examples/buggy_api/app.py violates this contract on purpose; see BUGS.md.
+servers:
+  - url: http://127.0.0.1:8000
+security:
+  - ApiKeyAuth: []
+tags:
+  - name: items
+  - name: users
+  - name: orders
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /items:
+    get:
+      operationId: listItems
+      summary: List items, paginated
+      description: Returns live (non-deleted) items in creation order.
+      tags: [items]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: A page of items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    post:
+      operationId: createItem
+      summary: Create an item
+      description: >
+        Creates an inventory item. Prices are never negative and quantity is at most
+        10000 units. A SKU is assigned by the server.
+      tags: [items]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemInput"
+      responses:
+        "201":
+          description: Item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+          links:
+            GetItemById:
+              operationId: getItem
+              parameters:
+                item_id: "$response.body#/id"
+            DeleteItemById:
+              operationId: deleteItem
+              parameters:
+                item_id: "$response.body#/id"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /items/{item_id}:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      operationId: getItem
+      summary: Fetch one item
+      tags: [items]
+      responses:
+        "200":
+          description: The item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    put:
+      operationId: replaceItem
+      summary: Replace an item
+      tags: [items]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemInput"
+      responses:
+        "200":
+          description: The updated item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteItem
+      summary: Delete an item
+      tags: [items]
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /users:
+    post:
+      operationId: createUser
+      summary: Register a user
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /users/{user_id}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      operationId: getUser
+      summary: Fetch one user
+      tags: [users]
+      responses:
+        "200":
+          description: The user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /search:
+    get:
+      operationId: searchItems
+      summary: Case-insensitive substring search over item names
+      tags: [items]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "200":
+          description: Matching items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /orders:
+    post:
+      operationId: createOrder
+      summary: Order some quantity of an item
+      description: Total is price multiplied by quantity. Quantity is between 1 and 1000.
+      tags: [orders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /orders/{order_id}:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    get:
+      operationId: getOrder
+      summary: Fetch one order
+      tags: [orders]
+      responses:
+        "200":
+          description: The order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+    PageSize:
+      name: page_size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    ItemId:
+      name: item_id
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+    OrderId:
+      name: order_id
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ValidationError:
+      description: Request failed validation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail: { type: string }
+
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+
+    Category:
+      type: string
+      enum: [books, electronics, toys]
+
+    ItemBase:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        price: { type: number, minimum: 0 }
+        quantity: { type: integer, minimum: 0, maximum: 10000 }
+        category: { $ref: "#/components/schemas/Category" }
+        tags:
+          type: array
+          maxItems: 10
+          items: { type: string, minLength: 1, maxLength: 30 }
+        description: { type: string, nullable: true, maxLength: 500 }
+        metadata:
+          type: object
+          description: Free-form key/value data; any JSON value, nested to any depth.
+          additionalProperties: true
+
+    ItemInput:
+      allOf:
+        - $ref: "#/components/schemas/ItemBase"
+        - type: object
+          required: [name, price, quantity, category]
+
+    Item:
+      allOf:
+        - $ref: "#/components/schemas/ItemBase"
+        - type: object
+          required: [id, sku, name, price, quantity, category, tags, created_at]
+          properties:
+            id: { type: integer, minimum: 1, readOnly: true }
+            sku: { type: string, readOnly: true }
+            created_at: { type: string, format: date-time, readOnly: true }
+
+    ItemPage:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Item" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1 }
+
+    SearchResult:
+      type: object
+      required: [query, results]
+      properties:
+        query: { type: string }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/Item" }
+
+    UserInput:
+      type: object
+      additionalProperties: false
+      required: [username, email, age]
+      properties:
+        username: { type: string, pattern: "^[a-z0-9_]{3,20}$" }
+        email: { type: string, format: email }
+        age: { type: integer, minimum: 13, maximum: 120 }
+
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, username, email, age]
+      properties:
+        id: { type: integer, minimum: 1 }
+        username: { type: string, pattern: "^[a-z0-9_]{3,20}$" }
+        email: { type: string, format: email }
+        age: { type: integer, minimum: 13, maximum: 120 }
+
+    OrderInput:
+      type: object
+      required: [item_id, quantity]
+      properties:
+        item_id: { type: integer, minimum: 1 }
+        quantity: { type: integer, minimum: 1, maximum: 1000 }
+
+    Order:
+      type: object
+      required: [id, item_id, quantity, unit_price, total]
+      properties:
+        id: { type: integer, minimum: 1 }
+        item_id: { type: integer, minimum: 1 }
+        quantity: { type: integer, minimum: 1, maximum: 1000 }
+        unit_price: { type: number }
+        total: { type: number }

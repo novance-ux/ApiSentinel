@@ -1,0 +1,14 @@
+# apitest configuration for the example buggy API.
+# Run:  uv run apitest run examples/specs/buggy_api.yaml -c examples/buggy_api/apitest.yaml
+base_url: http://127.0.0.1:8000
+auth:
+  type: api_key
+  value: ${BUGGY_API_KEY}     # export BUGGY_API_KEY=secret-key
+  # name/in default to the spec's apiKey scheme (X-API-Key, header)
+concurrency: 8
+timeout: 5
+retries: 2
+latency_threshold_ms: 1000
+cases_per_endpoint: 3
+seed: 0
+strategies: [positive, security]
